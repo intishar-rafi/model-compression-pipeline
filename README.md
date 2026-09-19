@@ -80,8 +80,8 @@ Five stages, each building on the last:
 ## How compression works
 
 Conceptually, each lever attacks a different part of what makes a model
-expensive: how *many* parameters it has, how many *bits* each one costs, and
-how *wide* the architecture is.
+expensive: how _many_ parameters it has, how many _bits_ each one costs, and
+how _wide_ the architecture is.
 
 ```mermaid
 graph LR
@@ -113,10 +113,10 @@ graph LR
     style B fill:#333,stroke:#888,color:#fff
 ```
 
-Pruning shrinks *parameter count* (but only pays off in storage once sparsity
+Pruning shrinks _parameter count_ (but only pays off in storage once sparsity
 clears the break-even point for your index format). Quantization shrinks
-*bits per parameter* (at the cost of precision — SNR drops ~6 dB per bit
-removed). Distillation shrinks the *architecture itself* by training a
+_bits per parameter_ (at the cost of precision — SNR drops ~6 dB per bit
+removed). Distillation shrinks the _architecture itself_ by training a
 smaller network to mimic the larger one's soft output distribution, not
 just its hard labels. None of them alone gets you to budget here —
 composing all three does.
@@ -128,33 +128,35 @@ Teacher CNN: 105,866 params, 0.42 MB (fp32), 80.7% accuracy.
 Budget: ≤ 0.03 MB, ≤ 33.3 ms/frame (30 FPS), ≥ 70.7% accuracy.
 
 | Stage     | Size (MB) | Latency (ms) | Accuracy | Sparsity | Budget met |
-|-----------|----------:|-------------:|---------:|---------:|:----------:|
-| teacher   | 0.4235    | 0.316         | 0.807    | 0.00     | ✗ |
-| distilled | 0.1068    | 0.245         | 0.753    | 0.00     | ✗ |
-| pruned    | 0.0322    | 0.249         | 0.762    | 0.80     | ✗ |
-| quantized | 0.0160    | 0.248         | 0.763    | 0.80     | ✓ |
+| --------- | --------: | -----------: | -------: | -------: | :--------: |
+| teacher   |    0.4235 |        0.316 |    0.807 |     0.00 |     ✗      |
+| distilled |    0.1068 |        0.245 |    0.753 |     0.00 |     ✗      |
+| pruned    |    0.0322 |        0.249 |    0.762 |     0.80 |     ✗      |
+| quantized |    0.0160 |        0.248 |    0.763 |     0.80 |     ✓      |
 
 **Budget met at the `quantized` stage** — distill for a smaller architecture,
 prune what's left, quantize what survives. Each lever attacks a different
 bottleneck; composing them is what actually closes a 26x size gap.
 
-*(Latency is measured on CPU in this environment, so absolute numbers won't
+_(Latency is measured on CPU in this environment, so absolute numbers won't
 match a phone — but the relative story per stage, and the methodology for
-measuring it, transfers directly.)*
+measuring it, transfers directly.)_
 
 ## What each lever bought
 
 **Pruning** — global magnitude pruning, masked fine-tuning, cubic sparsity
 schedule:
+
 - One-shot pruning to 90% sparsity: accuracy collapses to 58.6%
 - The same target reached iteratively (schedule `[0.633, 0.867, 0.9]`) with
-  fine-tuning between rounds: 81.9% — *above* the original teacher
+  fine-tuning between rounds: 81.9% — _above_ the original teacher
 - Sparse storage only pays off past ~33% sparsity at 16-bit indices — a
   90%-sparse tensor stored densely is still full size; this is the
   "zeros still cost bytes" trap naive pruning walks into
 
 **Quantization** — symmetric and per-channel, calibrated activation ranges,
 measured SNR:
+
 - 8-bit and 4-bit per-channel: accuracy holds (80.9%, 81.4%)
 - 2-bit: falls off a cliff (26.6%)
 - fc1 SNR drops 41.2 dB → 16.0 dB → 1.4 dB across 8/4/2-bit
@@ -162,6 +164,7 @@ measured SNR:
   for a uniform quantizer
 
 **Distillation** — soft-label training into a narrower student (8, 16, 32):
+
 - Distilled: 75.3% vs. plain hard-label training: 74.0% (+1.3 pts)
 - Modest at this data/model scale, but consistent and in the right direction
 
@@ -182,12 +185,3 @@ python scaffold.py
 Downloads Fashion-MNIST (idx files, cached in the system temp dir) on first
 run, trains a teacher, and walks through all five stages, printing size,
 latency, and accuracy after each.
-
-## Why this exists
-
-Most "model compression" writeups either explain the theory or show a single
-before/after number. This project measures every stage of every lever
-independently first (so you can see what pruning costs before quantization
-even enters the picture), then composes them — which is closer to how the
-decision actually gets made in an on-device deployment: given a budget, which
-combination of techniques gets you there with the least accuracy lost.
