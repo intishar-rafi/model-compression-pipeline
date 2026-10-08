@@ -1,18 +1,7 @@
-"""
-On-Device Model Compression Pipeline scaffold.
-
-Run this with: python scaffold.py
-Uses functions defined in model.py.
-"""
-
-from model import *  # noqa: F401, F403 (pulls in your solution functions)
+from model import *  
 
 """On-Device Model Compression Pipeline.
 
-Story: train a teacher CNN on Fashion-MNIST, state a budget in megabytes,
-milliseconds and accuracy, then apply pruning, quantization and distillation,
-measuring size, latency and accuracy after every stage, and finish with the
-pipeline that composes the levers until the budget is met.
 """
 import copy
 import torch
